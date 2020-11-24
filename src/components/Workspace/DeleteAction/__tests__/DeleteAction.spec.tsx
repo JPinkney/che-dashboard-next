@@ -16,8 +16,8 @@ import renderer, { ReactTestRendererJSON } from 'react-test-renderer';
 import { render, screen } from '@testing-library/react';
 import { Store } from 'redux';
 import WorkspaceDeleteAction from '../';
-import { createFakeStore } from '../../../../services/__mocks__/store';
-import { createFakeWorkspace } from '../../../../services/__mocks__/workspace';
+import { createFakeStore } from '../../../../store/__mocks__/store';
+import { createFakeWorkspace } from '../../../../store/__mocks__/workspace';
 
 jest.mock('../../../../store/Workspaces/index', () => {
   return { actionCreators: {} };

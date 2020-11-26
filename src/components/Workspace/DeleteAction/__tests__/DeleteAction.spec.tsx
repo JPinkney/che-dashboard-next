@@ -18,6 +18,7 @@ import { Store } from 'redux';
 import WorkspaceDeleteAction from '../';
 import { createFakeStore } from '../../../../services/__mocks__/store';
 import { createFakeWorkspace } from '../../../../services/__mocks__/workspace';
+import { WorkspaceStatus } from '../../../../services/helpers/types';
 
 jest.mock('../../../../store/Workspaces/index', () => {
   return { actionCreators: {} };
@@ -47,44 +48,86 @@ describe('Workspace delete component', () => {
 
   it('should render delete widget enabled correctly', () => {
     const disabled = false;
-    const component = createComponent(store, disabled, workspaceId, jest.fn());
+    const component = createComponent(store, disabled, workspaceId, jest.fn(), jest.fn());
 
     expect(getComponentSnapshot(component)).toMatchSnapshot();
   });
 
   it('should render delete widget disabled correctly', () => {
     const disabled = false;
-    const component = createComponent(store, disabled, workspaceId, jest.fn());
+    const component = createComponent(store, disabled, workspaceId, jest.fn(), jest.fn());
 
     expect(getComponentSnapshot(component)).toMatchSnapshot();
+  });
+
+  it('should delete workspace on start correctly', () => {
+    const disabled = false;
+    WorkspaceDeleteAction.shouldDelete.push(workspaceId);
+    const deleteWorkspace = jest.fn();
+    const stopWorkspace = jest.fn();
+
+    renderComponent(createComponent(store, disabled, workspaceId, deleteWorkspace, stopWorkspace));
+
+    expect(stopWorkspace).not.toBeCalled();
+    expect(deleteWorkspace).toBeCalledWith(workspaceId);
   });
 
   it('should delete workspace if enable', () => {
     const disabled = false;
     const deleteWorkspace = jest.fn();
+    const stopWorkspace = jest.fn();
 
-    renderComponent(createComponent(store, disabled, workspaceId, deleteWorkspace));
+    renderComponent(createComponent(store, disabled, workspaceId, deleteWorkspace, stopWorkspace));
 
+    expect(stopWorkspace).not.toBeCalled();
     expect(deleteWorkspace).not.toBeCalled();
 
     const getStartedTabButton = screen.getByTestId(`delete-${workspaceId}`);
     getStartedTabButton.click();
 
+    expect(stopWorkspace).not.toBeCalled();
     expect(deleteWorkspace).toBeCalledWith(workspaceId);
   });
 
   it('shouldn\'t delete workspace if disabled', () => {
     const disabled = true;
     const deleteWorkspace = jest.fn();
+    const stopWorkspace = jest.fn();
 
-    renderComponent(createComponent(store, disabled, workspaceId, deleteWorkspace));
+    renderComponent(createComponent(store, disabled, workspaceId, deleteWorkspace, stopWorkspace));
 
+    expect(stopWorkspace).not.toBeCalled();
+    expect(deleteWorkspace).not.toBeCalled();
+
+    const getStartedTabButton = screen.getByTestId(`delete-${workspaceId}`);
+    getStartedTabButton.click();
+
+    expect(stopWorkspace).not.toBeCalled();
+    expect(deleteWorkspace).not.toBeCalled();
+  });
+
+  it('should stop workspace if enable', () => {
+    const status = WorkspaceStatus[WorkspaceStatus.RUNNING];
+    const runtime: che.WorkspaceRuntime = {
+      machines: {},
+      status: WorkspaceStatus[WorkspaceStatus.RUNNING],
+      activeEnv: 'default',
+    };
+    const workspace = createFakeWorkspace(workspaceId, workspaceName, 'admin', status, runtime);
+    const store = createFakeStore([workspace]);
+    const deleteWorkspace = jest.fn();
+    const stopWorkspace = jest.fn();
+
+    renderComponent(createComponent(store, false, workspaceId, deleteWorkspace, stopWorkspace));
+
+    expect(stopWorkspace).not.toBeCalled();
     expect(deleteWorkspace).not.toBeCalled();
 
     const getStartedTabButton = screen.getByTestId(`delete-${workspaceId}`);
     getStartedTabButton.click();
 
     expect(deleteWorkspace).not.toBeCalled();
+    expect(stopWorkspace).toBeCalledWith(workspaceId);
   });
 
 });
@@ -93,7 +136,8 @@ function createComponent(
   store: Store,
   disabled: boolean,
   workspaceId: string,
-  deleteWorkspace: jest.Mock
+  deleteWorkspace: jest.Mock,
+  stopWorkspace: jest.Mock
 ): React.ReactElement {
   return (
     <Provider store={store}>
@@ -101,6 +145,7 @@ function createComponent(
         disabled={disabled}
         workspaceId={workspaceId}
         deleteWorkspace={deleteWorkspace}
+        stopWorkspace={stopWorkspace}
         showAlert={jest.fn()}
       />
     </Provider>

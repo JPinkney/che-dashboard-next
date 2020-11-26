@@ -36,7 +36,7 @@ type State = {
   isExpanded: boolean;
   isStopped: boolean;
   hasError: boolean;
-  logs: string[];
+  logs: string[] | undefined;
 };
 
 export class LogsTab extends React.PureComponent<Props, State> {
@@ -70,7 +70,7 @@ export class LogsTab extends React.PureComponent<Props, State> {
       }
 
       const hasError = WorkspaceStatus[workspace.status] === WorkspaceStatus.ERROR;
-      if (this.state.hasError !== hasError) {
+      if (hasError && !this.state.hasError) {
         this.setState({ hasError });
       }
 
@@ -79,19 +79,18 @@ export class LogsTab extends React.PureComponent<Props, State> {
         this.setState({ isStopped });
       }
 
-      if (workspacesLogs) {
-        const logs = workspacesLogs.get(workspaceId);
-        if (logs && (logs.length !== this.state.logs.length)) {
-          this.setState({ logs });
-        }
+      const logs = workspacesLogs.get(workspaceId);
+      if (this.state.logs !== logs) {
+        this.setState({ logs });
       }
     }
   }
 
   render() {
-    const { isExpanded, logs, hasError, isStopped } = this.state;
+    const { isExpanded, hasError, isStopped } = this.state;
+    const logs = this.state.logs === undefined ? [] : this.state.logs;
 
-    if (isStopped) {
+    if (isStopped && !hasError) {
       return (
         <EmptyState style={{ backgroundColor: '#f1f1f1' }}>
           <EmptyStateIcon icon={FileIcon} />
@@ -105,6 +104,8 @@ export class LogsTab extends React.PureComponent<Props, State> {
       );
     }
 
+    const errorRe = /^Error: /gi;
+
     return (
       <PageSection variant={PageSectionVariants.light}>
         <div className={isExpanded ? styles.tabExpanded : ''}>
@@ -113,7 +114,18 @@ export class LogsTab extends React.PureComponent<Props, State> {
           }} />
           <div className={styles.consoleOutput}>
             <div>{logs.length} lines</div>
-            <pre className={hasError ? styles.errorColor : ''}>{logs.join('\n')}</pre>
+            <pre>
+              {logs.map((item: string, i: number) => {
+                if (errorRe.test(item)) {
+                  return (
+                    <p className={styles.errorColor} key={item + i}>
+                      {item.replace(errorRe, '')}
+                    </p>
+                  );
+                }
+                return (<p key={item + i}>{item}</p>);
+              })}
+            </pre>
           </div>
         </div>
       </PageSection>

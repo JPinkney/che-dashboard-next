@@ -93,7 +93,7 @@ function createComponent(
   store: Store,
   disabled: boolean,
   workspaceId: string,
-  deleteWorkspace: jest.Mock,
+  deleteWorkspace: jest.Mock
 ): React.ReactElement {
   return (
     <Provider store={store}>
@@ -101,6 +101,7 @@ function createComponent(
         disabled={disabled}
         workspaceId={workspaceId}
         deleteWorkspace={deleteWorkspace}
+        showAlert={jest.fn()}
       />
     </Provider>
   );

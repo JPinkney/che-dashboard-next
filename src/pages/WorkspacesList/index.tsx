@@ -10,41 +10,74 @@
  *   Red Hat, Inc. - initial API and implementation
  */
 
+import {
+  Alert,
+  AlertActionCloseButton,
+  AlertGroup,
+  AlertVariant,
+  Button,
+  PageSection,
+  PageSectionVariants,
+  Text,
+} from '@patternfly/react-core';
+import { Table, TableBody, TableHeader } from '@patternfly/react-table';
+import { History } from 'history';
 import React from 'react';
 import { connect, ConnectedProps } from 'react-redux';
-import { History } from 'history';
-import { Table, TableBody, TableHeader } from '@patternfly/react-table';
-import { Button, PageSection, PageSectionVariants, Text } from '@patternfly/react-core';
-
-import { container } from '../../inversify.config';
-import { AppState } from '../../store';
-import * as WorkspacesStore from '../../store/Workspaces';
 import CheProgress from '../../components/Progress';
+import WorkspaceDeleteAction from '../../components/Workspace/DeleteAction';
 import WorkspaceIndicator from '../../components/Workspace/Indicator';
 import WorkspaceRunAction from '../../components/Workspace/RunAction';
 import WorkspaceStopAction from '../../components/Workspace/StopAction';
-import WorkspaceDeleteAction from '../../components/Workspace/DeleteAction';
-import { Debounce } from '../../services/helpers/debounce';
-import { selectIsLoading, selectAllWorkspacesByName } from '../../store/Workspaces/selectors';
 import { WorkspaceStatus } from '../../services/helpers/types';
+import { AppState } from '../../store';
+import * as WorkspacesStore from '../../store/Workspaces';
+import { selectAllWorkspacesByName, selectIsLoading } from '../../store/Workspaces/selectors';
+import { container } from '../../inversify.config';
+import { Debounce } from '../../services/helpers/debounce';
 
 import './WorkspacesList.styl';
 
 const SECTION_THEME = PageSectionVariants.light;
 
-type Props =
-  MappedProps
-  & {
-    history: History
-  };
+type Props = MappedProps & { history: History };
 
-export class WorkspacesList extends React.PureComponent<Props> {
+type State = {
+  alertVisible: boolean;
+  alertMessage: string;
+  alertVariant: AlertVariant;
+};
+
+export class WorkspacesList extends React.PureComponent<Props, State> {
   private debounce: Debounce;
+  private readonly hideAlert: () => void;
+  private readonly showAlert: (title: string, variant?: AlertVariant) => void;
 
   constructor(props: Props) {
     super(props);
 
+    this.state = {
+      alertVisible: false,
+      alertMessage: '',
+      alertVariant: AlertVariant.success
+    };
+
     this.debounce = container.get(Debounce);
+
+    // Init showAlert
+    let showAlertTimer;
+    this.showAlert = (alertMessage: string, alertVariant: AlertVariant = AlertVariant.danger): void => {
+      this.setState({ alertMessage, alertVariant, alertVisible: true });
+      if (showAlertTimer) {
+        clearTimeout(showAlertTimer);
+      }
+      showAlertTimer = setTimeout(() => {
+        this.setState({ alertVisible: false });
+      }, alertVariant === AlertVariant.success ? 2000 : 10000);
+    };
+    this.hideAlert = (): void => this.setState({
+      alertVisible: false
+    });
   }
 
   private buildWorkspaceRow(workspace: che.Workspace): React.ReactNodeArray {
@@ -114,6 +147,7 @@ export class WorkspacesList extends React.PureComponent<Props> {
       <WorkspaceDeleteAction
         key={`delete_${workspace.id}${workspace.status}`}
         workspaceId={workspace.id}
+        showAlert={this.showAlert}
         disabled={disabled}
       />
     );
@@ -135,13 +169,23 @@ export class WorkspacesList extends React.PureComponent<Props> {
 
     const columns = ['NAME', 'RAM', 'PROJECTS', 'STACK', 'ACTIONS'];
     const rows = allWorkspaces.map((workspace: che.Workspace) => ({
-      cells: this.buildWorkspaceRow(workspace)
+      cells: this.buildWorkspaceRow(workspace),
     })) || [];
 
     const { workspace } = this.props.branding.data.docs;
+    const { alertVisible, alertVariant, alertMessage } = this.state;
 
     return (
       <React.Fragment>
+        {alertVisible && (
+          <AlertGroup isToast>
+            <Alert
+              variant={alertVariant}
+              title={alertMessage}
+              actionClose={<AlertActionCloseButton onClose={this.hideAlert} />}
+            />
+          </AlertGroup>
+        )}
         <PageSection variant={SECTION_THEME}>
           <Text className='page-label' component='h1'>Workspaces</Text>
         </PageSection>
